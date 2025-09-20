@@ -15,17 +15,44 @@ export default function Dashboard() {
     if (!keyword.trim()) return;
 
     setIsGenerating(true);
-    // TODO: Connect to N8N workflow in Phase 3
 
-    // Simulate generation for UI purposes
-    setTimeout(() => {
-      setGeneratedArticle({
-        title: `Article générée pour "${keyword}"`,
-        keyword: keyword,
-        content: 'Le contenu de l\'article généré par l\'IA apparaîtra ici après la génération...'
+    try {
+      const response = await fetch('https://n8niacloud.khapeo.com/webhook-test/ai-article-generation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keyword: keyword.trim()
+        })
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGeneratedArticle({
+          title: data.title || `Article générée pour "${keyword}"`,
+          keyword: keyword,
+          content: data.content || 'Le contenu de l\'article généré par l\'IA apparaîtra ici après la génération...'
+        });
+      } else {
+        // Handle error response
+        console.error('N8N webhook error:', response.status);
+        setGeneratedArticle({
+          title: `Article générée pour "${keyword}" (Test Mode)`,
+          keyword: keyword,
+          content: 'Erreur de connexion au workflow N8N. Mode test activé.'
+        });
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      setGeneratedArticle({
+        title: `Article générée pour "${keyword}" (Offline Mode)`,
+        keyword: keyword,
+        content: 'Erreur de connexion réseau. Mode hors ligne activé.'
+      });
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
   };
 
   const handlePublish = async () => {
@@ -60,7 +87,7 @@ export default function Dashboard() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="Entrez votre mot-clé..."
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg text-gray-900"
             disabled={isGenerating}
           />
           <button
@@ -95,7 +122,7 @@ export default function Dashboard() {
               value={generatedArticle.title}
               onChange={(e) => setGeneratedArticle({...generatedArticle, title: e.target.value})}
               placeholder="Le titre de l'article apparaîtra ici..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-medium"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-medium text-gray-900"
             />
           </div>
 
@@ -123,7 +150,7 @@ export default function Dashboard() {
               onChange={(e) => setGeneratedArticle({...generatedArticle, content: e.target.value})}
               placeholder="Le contenu complet de l'article généré par l'IA apparaîtra ici. Vous pourrez le modifier avant publication..."
               rows={12}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-900"
             />
           </div>
 
