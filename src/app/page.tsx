@@ -17,6 +17,8 @@ export default function Dashboard() {
     setIsGenerating(true);
 
     try {
+      console.log('🚀 Sending request to N8N webhook with keyword:', keyword.trim());
+
       const response = await fetch('https://n8niacloud.khapeo.com/webhook-test/ai-article-generation', {
         method: 'POST',
         headers: {
@@ -27,6 +29,9 @@ export default function Dashboard() {
         })
       });
 
+      console.log('📡 N8N response status:', response.status);
+      console.log('📡 N8N response headers:', response.headers);
+
       if (response.ok) {
         const data = await response.json();
         setGeneratedArticle({
@@ -36,15 +41,16 @@ export default function Dashboard() {
         });
       } else {
         // Handle error response
-        console.error('N8N webhook error:', response.status);
+        const errorData = await response.text();
+        console.error('❌ N8N webhook error:', response.status, errorData);
         setGeneratedArticle({
           title: `Article générée pour "${keyword}" (Test Mode)`,
           keyword: keyword,
-          content: 'Erreur de connexion au workflow N8N. Mode test activé.'
+          content: `Erreur de connexion au workflow N8N (${response.status}): ${errorData}`
         });
       }
     } catch (error) {
-      console.error('Network error:', error);
+      console.error('❌ Network error:', error);
       setGeneratedArticle({
         title: `Article générée pour "${keyword}" (Offline Mode)`,
         keyword: keyword,
