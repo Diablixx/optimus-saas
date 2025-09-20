@@ -1,25 +1,35 @@
 'use client';
 
 import { useState } from 'react';
+import { getArticleByKeyword } from '@/lib/supabase';
 
 export default function Dashboard() {
   const [keyword, setKeyword] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
   const [generatedArticle, setGeneratedArticle] = useState({
     title: '',
     keyword: '',
     content: ''
   });
+  const [articlesHistory, setArticlesHistory] = useState<Array<{
+    id: string;
+    title: string;
+    keyword: string;
+    created_at: string;
+  }>>([]);
 
   const handleGenerate = async () => {
     if (!keyword.trim()) return;
 
     setIsGenerating(true);
+    setGenerationStatus('Envoi de la demande à N8N...');
 
     try {
       console.log('🚀 Sending request to N8N webhook with keyword:', keyword.trim());
 
-      const response = await fetch('https://n8niacloud.khapeo.com/webhook-test/ai-article-generation', {
+      // Step 1: Send webhook request to N8N
+      const response = await fetch('https://n8niacloud.khapeo.com/webhook/ai-article-generation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,34 +40,69 @@ export default function Dashboard() {
       });
 
       console.log('📡 N8N response status:', response.status);
-      console.log('📡 N8N response headers:', response.headers);
 
       if (response.ok) {
-        const data = await response.json();
-        setGeneratedArticle({
-          title: data.title || `Article générée pour "${keyword}"`,
-          keyword: keyword,
-          content: data.content || 'Le contenu de l\'article généré par l\'IA apparaîtra ici après la génération...'
-        });
+        setGenerationStatus('Génération en cours par l\'IA...');
+
+        // Step 2: Wait 13 seconds for N8N to process and save to Supabase
+        console.log('⏳ Waiting 13 seconds for N8N processing...');
+        await new Promise(resolve => setTimeout(resolve, 13000));
+
+        setGenerationStatus('Récupération de l\'article depuis Supabase...');
+
+        // Step 3: Query Supabase for the generated article
+        console.log('📊 Querying Supabase for article with keyword:', keyword.trim());
+        const article = await getArticleByKeyword(keyword.trim());
+
+        if (article) {
+          console.log('✅ Article retrieved from Supabase:', article);
+
+          setGeneratedArticle({
+            title: article.title,
+            keyword: article.keyword,
+            content: article.content
+          });
+
+          // Add to articles history
+          setArticlesHistory(prev => [{
+            id: article.id,
+            title: article.title,
+            keyword: article.keyword,
+            created_at: article.created_at
+          }, ...prev]);
+
+          setGenerationStatus('Article généré avec succès!');
+        } else {
+          console.error('❌ No article found in Supabase for keyword:', keyword.trim());
+          setGeneratedArticle({
+            title: `Article pour "${keyword}" - En attente`,
+            keyword: keyword,
+            content: 'Article non trouvé dans Supabase. L\'IA n\'a peut-être pas terminé la génération ou une erreur s\'est produite.'
+          });
+          setGenerationStatus('Article non trouvé - Réessayez dans quelques instants');
+        }
       } else {
-        // Handle error response
         const errorData = await response.text();
         console.error('❌ N8N webhook error:', response.status, errorData);
         setGeneratedArticle({
-          title: `Article générée pour "${keyword}" (Test Mode)`,
+          title: `Erreur - ${keyword}`,
           keyword: keyword,
           content: `Erreur de connexion au workflow N8N (${response.status}): ${errorData}`
         });
+        setGenerationStatus('Erreur de connexion N8N');
       }
     } catch (error) {
       console.error('❌ Network error:', error);
       setGeneratedArticle({
-        title: `Article générée pour "${keyword}" (Offline Mode)`,
+        title: `Erreur réseau - ${keyword}`,
         keyword: keyword,
-        content: 'Erreur de connexion réseau. Mode hors ligne activé.'
+        content: 'Erreur de connexion réseau. Vérifiez votre connexion internet.'
       });
+      setGenerationStatus('Erreur de connexion réseau');
     } finally {
       setIsGenerating(false);
+      // Clear status after 3 seconds
+      setTimeout(() => setGenerationStatus(''), 3000);
     }
   };
 
@@ -111,6 +156,18 @@ export default function Dashboard() {
             )}
           </button>
         </div>
+
+        {/* Generation Status */}
+        {generationStatus && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center">
+              {isGenerating && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              )}
+              <span className="text-blue-800 text-sm font-medium">{generationStatus}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Article Display Section */}
