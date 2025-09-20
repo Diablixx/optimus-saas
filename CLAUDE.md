@@ -32,6 +32,39 @@
 User enters keyword → SAAS Dashboard → N8N Cloud Processing → OpenAI GPT-4 Generation → Supabase Database Storage → Dynamic BlogMegaMenu Display → Individual Article Pages with SEO
 ```
 
+### **Detailed Article Generation Workflow**
+
+#### **Phase A: Article Generation**
+1. **User Input**: User enters keyword in dashboard input field
+2. **Generate Trigger**: User presses "Generate Article" button
+3. **N8N Processing**: Request sent to N8N Cloud workflow
+4. **AI Generation**: N8N triggers OpenAI GPT-4 to generate article content
+5. **Database Storage**: N8N stores generated article in Supabase with:
+   - Title (generated)
+   - Keyword (user input)
+   - Article content (AI generated)
+   - Status: draft
+6. **Dashboard Display**: Article returns to OPTIMUS dashboard showing:
+   - Titre field (editable)
+   - Mot clé field (shows user keyword)
+   - Article content field (large editable box)
+
+#### **Phase B: Article Publication**
+1. **User Review**: User can modify Title and Article content fields
+2. **Publish Trigger**: User presses "Publish Article" button
+3. **N8N Validation**: Request sent back to N8N with modifications
+4. **Modification Check**: N8N uses keyword to find match in Supabase
+5. **Update Process**: If modifications detected, N8N updates Supabase table
+6. **Processing Wait**: OPTIMUS waits ~10 seconds for N8N completion
+7. **Final Sync**: OPTIMUS retrieves updated article from Supabase
+8. **Website Publication**: Article appears in BlogMegaMenu on public website
+
+#### **Critical Workflow Requirements**
+- **Keyword-based matching**: N8N uses keyword as unique identifier
+- **Real-time sync**: Dashboard shows live article state
+- **Modification tracking**: System detects and handles content changes
+- **Publication pipeline**: Seamless flow from draft to published state
+
 ### **Dual Application Strategy**
 - **optimus-template**: Public-facing website that dynamically displays articles
 - **optimus-saas**: Private admin interface for generating and managing content
