@@ -51,7 +51,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Compare article changes\nconst webhookData = $input.first().json;\nconst existingArticle = $('Supabase - Find Article').first().json;\n\n// Extract data from webhook\nconst newTitle = webhookData.title?.trim() || '';\nconst newContent = webhookData.content?.trim() || '';\nconst keyword = webhookData.keyword?.trim() || '';\n\n// Extract existing data\nconst existingTitle = existingArticle.title?.trim() || '';\nconst existingContent = existingArticle.content?.trim() || '';\n\n// Check if changes were made\nconst titleChanged = newTitle !== existingTitle;\nconst contentChanged = newContent !== existingContent;\nconst hasChanges = titleChanged || contentChanged;\n\n// Log comparison for debugging\nconsole.log('🔍 Article Comparison:');\nconsole.log('Keyword:', keyword);\nconsole.log('Title changed:', titleChanged);\nconsole.log('Content changed:', contentChanged);\nconsole.log('Has changes:', hasChanges);\n\nreturn {\n  keyword: keyword,\n  newTitle: newTitle,\n  newContent: newContent,\n  existingTitle: existingTitle,\n  existingContent: existingContent,\n  hasChanges: hasChanges,\n  titleChanged: titleChanged,\n  contentChanged: contentChanged,\n  articleId: existingArticle.id\n};"
+        "jsCode": "// Compare article changes and generate metadata\nconst webhookData = $input.first().json;\nconst existingArticle = $('Supabase - Find Article').first().json;\n\n// Extract data from webhook\nconst newTitle = webhookData.title?.trim() || '';\nconst newContent = webhookData.content?.trim() || '';\nconst keyword = webhookData.keyword?.trim() || '';\n\n// Extract existing data\nconst existingTitle = existingArticle.title?.trim() || '';\nconst existingContent = existingArticle.content?.trim() || '';\n\n// Check if changes were made\nconst titleChanged = newTitle !== existingTitle;\nconst contentChanged = newContent !== existingContent;\nconst hasChanges = titleChanged || contentChanged;\n\n// Generate slug from title (SEO-friendly)\nfunction generateSlug(title) {\n  return title\n    .toLowerCase()\n    .trim()\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/[^a-z0-9\\s-]/g, '')\n    .replace(/\\s+/g, '-')\n    .replace(/-+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 100)\n    .replace(/-+$/, '');\n}\n\n// Generate excerpt from content\nfunction generateExcerpt(content, maxLength = 160) {\n  const cleanContent = content\n    .replace(/#{1,6}\\s+/g, '')\n    .replace(/\\*\\*(.*?)\\*\\*/g, '$1')\n    .replace(/\\*(.*?)\\*/g, '$1')\n    .replace(/\\[(.*?)\\]\\(.*?\\)/g, '$1')\n    .replace(/<[^>]*>/g, '')\n    .replace(/\\n+/g, ' ')\n    .trim();\n\n  if (cleanContent.length <= maxLength) {\n    return cleanContent;\n  }\n\n  const truncated = cleanContent.slice(0, maxLength);\n  const lastSpace = truncated.lastIndexOf(' ');\n  return lastSpace > 0 ? truncated.slice(0, lastSpace) + '...' : truncated + '...';\n}\n\n// Estimate reading time\nfunction estimateReadingTime(content) {\n  const wordsPerMinute = 200;\n  const words = content.trim().split(/\\s+/).length;\n  const minutes = Math.ceil(words / wordsPerMinute);\n  return minutes === 1 ? '1 min de lecture' : `${minutes} min de lecture`;\n}\n\n// Generate metadata\nconst newSlug = generateSlug(newTitle);\nconst newExcerpt = generateExcerpt(newContent);\nconst newReadTime = estimateReadingTime(newContent);\nconst newMetaDescription = generateExcerpt(newContent, 160);\n\n// Log comparison for debugging\nconsole.log('🔍 Article Comparison:');\nconsole.log('Keyword:', keyword);\nconsole.log('Title changed:', titleChanged);\nconsole.log('Content changed:', contentChanged);\nconsole.log('Has changes:', hasChanges);\nconsole.log('Generated slug:', newSlug);\n\nreturn {\n  keyword: keyword,\n  newTitle: newTitle,\n  newContent: newContent,\n  newSlug: newSlug,\n  newExcerpt: newExcerpt,\n  newReadTime: newReadTime,\n  newMetaDescription: newMetaDescription,\n  existingTitle: existingTitle,\n  existingContent: existingContent,\n  hasChanges: hasChanges,\n  titleChanged: titleChanged,\n  contentChanged: contentChanged,\n  articleId: existingArticle.id\n};"
       },
       "id": "code-compare-changes",
       "name": "Code - Compare Changes",
@@ -98,6 +98,22 @@
             {
               "fieldName": "content",
               "fieldValue": "={{ $json.newContent }}"
+            },
+            {
+              "fieldName": "slug",
+              "fieldValue": "={{ $json.newSlug }}"
+            },
+            {
+              "fieldName": "excerpt",
+              "fieldValue": "={{ $json.newExcerpt }}"
+            },
+            {
+              "fieldName": "read_time",
+              "fieldValue": "={{ $json.newReadTime }}"
+            },
+            {
+              "fieldName": "meta_description",
+              "fieldValue": "={{ $json.newMetaDescription }}"
             },
             {
               "fieldName": "updated_at",

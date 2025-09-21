@@ -143,18 +143,41 @@ export default function Dashboard() {
         console.log('✅ N8N publish response:', data);
 
         if (data.success) {
-          setPublishStatus('Article publié avec succès!');
+          setPublishStatus('N8N a traité la publication, vérification...');
 
-          // Clear the article form after successful publication
-          setTimeout(() => {
-            setGeneratedArticle({
-              title: '',
-              keyword: '',
-              content: ''
-            });
-            setKeyword('');
-            setPublishStatus('');
-          }, 2000);
+          // Wait 3 seconds for N8N to complete the publication process
+          console.log('⏳ Waiting 3 seconds for N8N to complete publication...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+
+          // Query Supabase to confirm the article is published
+          setPublishStatus('Vérification de la publication sur le site public...');
+          console.log('🔍 Checking if article is published in Supabase...');
+
+          try {
+            const publishedArticle = await getArticleByKeyword(generatedArticle.keyword);
+
+            if (publishedArticle && publishedArticle.published) {
+              console.log('✅ Article confirmed as published:', publishedArticle);
+              setPublishStatus('🎉 Article publié avec succès et visible sur le site public!');
+
+              // Clear the article form after successful publication
+              setTimeout(() => {
+                setGeneratedArticle({
+                  title: '',
+                  keyword: '',
+                  content: ''
+                });
+                setKeyword('');
+                setPublishStatus('');
+              }, 3000);
+            } else {
+              console.log('⚠️ Article not found or not published yet');
+              setPublishStatus('⚠️ Publication en cours... L\'article apparaîtra bientôt sur le site.');
+            }
+          } catch (verifyError) {
+            console.error('❌ Error verifying publication:', verifyError);
+            setPublishStatus('✅ Article envoyé pour publication (vérification échouée)');
+          }
         } else {
           setPublishStatus(`Erreur de publication: ${data.message || data.error}`);
         }
