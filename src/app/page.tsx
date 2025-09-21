@@ -6,7 +6,9 @@ import { getArticleByKeyword } from '@/lib/supabase';
 export default function Dashboard() {
   const [keyword, setKeyword] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
+  const [publishStatus, setPublishStatus] = useState('');
   const [generatedArticle, setGeneratedArticle] = useState({
     title: '',
     keyword: '',
@@ -107,8 +109,68 @@ export default function Dashboard() {
   };
 
   const handlePublish = async () => {
-    // TODO: Connect to N8N publication workflow in Phase 3
-    alert('Fonction de publication sera disponible en Phase 3');
+    if (!generatedArticle.title || !generatedArticle.content || !generatedArticle.keyword) {
+      alert('Veuillez générer un article avant de le publier.');
+      return;
+    }
+
+    setIsPublishing(true);
+    setPublishStatus('Envoi vers N8N pour publication...');
+
+    try {
+      console.log('📤 Sending article to N8N publish webhook:', {
+        keyword: generatedArticle.keyword,
+        title: generatedArticle.title,
+        content: generatedArticle.content
+      });
+
+      const response = await fetch('https://n8niacloud.khapeo.com/webhook-test/publish-article', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keyword: generatedArticle.keyword.trim(),
+          title: generatedArticle.title.trim(),
+          content: generatedArticle.content.trim()
+        })
+      });
+
+      console.log('📡 N8N publish response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ N8N publish response:', data);
+
+        if (data.success) {
+          setPublishStatus('Article publié avec succès!');
+
+          // Clear the article form after successful publication
+          setTimeout(() => {
+            setGeneratedArticle({
+              title: '',
+              keyword: '',
+              content: ''
+            });
+            setKeyword('');
+            setPublishStatus('');
+          }, 2000);
+        } else {
+          setPublishStatus(`Erreur de publication: ${data.message || data.error}`);
+        }
+      } else {
+        const errorData = await response.text();
+        console.error('❌ N8N publish error:', response.status, errorData);
+        setPublishStatus(`Erreur N8N (${response.status}): ${errorData}`);
+      }
+    } catch (error) {
+      console.error('❌ Network error during publish:', error);
+      setPublishStatus('Erreur de connexion réseau lors de la publication.');
+    } finally {
+      setIsPublishing(false);
+      // Clear status after 5 seconds
+      setTimeout(() => setPublishStatus(''), 5000);
+    }
   };
 
   return (
@@ -217,14 +279,33 @@ export default function Dashboard() {
             />
           </div>
 
+          {/* Publish Status */}
+          {publishStatus && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                {isPublishing && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                )}
+                <span className="text-green-800 text-sm font-medium">{publishStatus}</span>
+              </div>
+            </div>
+          )}
+
           {/* Publish Button */}
           <div className="flex justify-end pt-4">
             <button
               onClick={handlePublish}
-              disabled={!generatedArticle.title || !generatedArticle.content}
-              className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!generatedArticle.title || !generatedArticle.content || isPublishing}
+              className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed min-w-[150px]"
             >
-              Publier l'Article
+              {isPublishing ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Publication...
+                </div>
+              ) : (
+                'Publier l\'Article'
+              )}
             </button>
           </div>
         </div>

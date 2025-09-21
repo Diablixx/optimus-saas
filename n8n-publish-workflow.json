@@ -1,0 +1,363 @@
+{
+  "name": "OPTIMUS Article Publishing Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publish-article",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Publish Article",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "publish-article"
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "get",
+        "tableId": "articles",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "keyword",
+              "condition": "equals",
+              "keyValue": "={{ $json.keyword }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-find-article",
+      "name": "Supabase - Find Article",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare article changes\nconst webhookData = $input.first().json;\nconst existingArticle = $('Supabase - Find Article').first().json;\n\n// Extract data from webhook\nconst newTitle = webhookData.title?.trim() || '';\nconst newContent = webhookData.content?.trim() || '';\nconst keyword = webhookData.keyword?.trim() || '';\n\n// Extract existing data\nconst existingTitle = existingArticle.title?.trim() || '';\nconst existingContent = existingArticle.content?.trim() || '';\n\n// Check if changes were made\nconst titleChanged = newTitle !== existingTitle;\nconst contentChanged = newContent !== existingContent;\nconst hasChanges = titleChanged || contentChanged;\n\n// Log comparison for debugging\nconsole.log('🔍 Article Comparison:');\nconsole.log('Keyword:', keyword);\nconsole.log('Title changed:', titleChanged);\nconsole.log('Content changed:', contentChanged);\nconsole.log('Has changes:', hasChanges);\n\nreturn {\n  keyword: keyword,\n  newTitle: newTitle,\n  newContent: newContent,\n  existingTitle: existingTitle,\n  existingContent: existingContent,\n  hasChanges: hasChanges,\n  titleChanged: titleChanged,\n  contentChanged: contentChanged,\n  articleId: existingArticle.id\n};"
+      },
+      "id": "code-compare-changes",
+      "name": "Code - Compare Changes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasChanges }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-changes-detected",
+      "name": "IF - Changes Detected",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "update",
+        "tableId": "articles",
+        "updateKey": "id",
+        "keyValue": "={{ $json.articleId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.newTitle }}"
+            },
+            {
+              "fieldName": "content",
+              "fieldValue": "={{ $json.newContent }}"
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-update-article",
+      "name": "Supabase - Update Article",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "update",
+        "tableId": "articles",
+        "updateKey": "id",
+        "keyValue": "={{ $json.articleId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "published",
+              "fieldValue": true
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-publish-article",
+      "name": "Supabase - Set Published",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "update",
+        "tableId": "articles",
+        "updateKey": "id",
+        "keyValue": "={{ $json.articleId }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "published",
+              "fieldValue": true
+            },
+            {
+              "fieldName": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-publish-no-changes",
+      "name": "Supabase - Set Published (No Changes)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the final article data\nconst data = $input.first().json;\n\n// Return success response to Optimus\nreturn {\n  success: true,\n  message: 'Article published successfully',\n  keyword: data.keyword || $('Code - Compare Changes').first().json.keyword,\n  articleId: data.id || $('Code - Compare Changes').first().json.articleId,\n  published: true,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "response-success",
+      "name": "Response - Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle article not found error\nconst webhookData = $input.first().json;\n\nreturn {\n  success: false,\n  error: 'Article not found',\n  message: `No article found with keyword: ${webhookData.keyword}`,\n  keyword: webhookData.keyword,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "error-not-found",
+      "name": "Error - Article Not Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "if-article-exists",
+      "name": "IF - Article Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        460,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Publish Article": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Find Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Find Article": {
+      "main": [
+        [
+          {
+            "node": "IF - Article Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Article Exists": {
+      "main": [
+        [
+          {
+            "node": "Code - Compare Changes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error - Article Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Compare Changes": {
+      "main": [
+        [
+          {
+            "node": "IF - Changes Detected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Changes Detected": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Update Article",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase - Set Published (No Changes)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Update Article": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Set Published",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Set Published": {
+      "main": [
+        [
+          {
+            "node": "Response - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Set Published (No Changes)": {
+      "main": [
+        [
+          {
+            "node": "Response - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "instanceId": "optimus-publish-workflow"
+  },
+  "id": "optimus-publish-workflow",
+  "tags": [
+    {
+      "createdAt": "2024-12-20T19:00:00.000Z",
+      "updatedAt": "2024-12-20T19:00:00.000Z",
+      "id": "optimus-publish",
+      "name": "OPTIMUS Publishing"
+    }
+  ]
+}
