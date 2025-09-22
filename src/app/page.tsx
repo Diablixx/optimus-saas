@@ -124,7 +124,7 @@ export default function Dashboard() {
         content: generatedArticle.content
       });
 
-      const response = await fetch('https://n8niacloud.khapeo.com/webhook-test/publish-article', {
+      const response = await fetch('https://n8niacloud.khapeo.com/webhook/publish-article', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
